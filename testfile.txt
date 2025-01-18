@@ -1,0 +1,3 @@
+home is $HOME
+Normal termination with exit status=0
+SUCCESSFUL Status from Child
