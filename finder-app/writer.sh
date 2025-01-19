@@ -1,9 +1,9 @@
-#!/bin/bash 
+#!/bin/sh 
 
 writefile=$1
 writestr=$2
 
-if (( $# != 2 ))
+if [ $# != 2 ]
 then 
     echo "Improper usage of the writer script:"
     echo "writer.sh <Valid Path For a File>  <String to Write in the File>"
