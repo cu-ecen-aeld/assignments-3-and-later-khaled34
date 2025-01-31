@@ -1,0 +1,25 @@
+#! /bin/sh
+DAEMON_PROCESS_NAME="aesdsocket"
+
+if [ $# -ne 1 ]
+then
+    echo "Expecting a single argument which is either Start or stop\n"
+    exit 1
+fi
+
+echo "DAEMON PROCESS NAME IS:${DAEMON_PROCESS_NAME} with Argument $1"
+case "$1" in
+    start)
+        echo "Starting ${DAEMON_PROCESS_NAME}"
+        start-stop-daemon -S -n ${DAEMON_PROCESS_NAME} -a /usr/bin/${DAEMON_PROCESS_NAME} -- -d 
+    ;;
+    stop)
+        echo "Stopping ${DAEMON_PROCESS_NAME}"
+        start-stop-daemon -K -n ${DAEMON_PROCESS_NAME}
+    ;;
+    *)
+        echo "Usage: $0 {start|stop}"
+        exit 1
+esac
+
+exit 0
