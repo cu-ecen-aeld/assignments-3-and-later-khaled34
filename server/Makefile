@@ -1,6 +1,7 @@
 # Variables
 CC = $(CROSS_COMPILE)gcc
 CFLAGS = -g -Wall
+LFLAGS = -lbsd -pthread
 SRC = $(wildcard *.c)
 OBJ = $(SRC:.c=.o)
 TARGET = aesdsocket
@@ -9,11 +10,11 @@ TARGET = aesdsocket
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $(OBJ)
+	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $(OBJ)
 	rm -f $(OBJ)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(LFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJ) $(TARGET)
