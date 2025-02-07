@@ -1,6 +1,7 @@
 # Variables
 CC = $(CROSS_COMPILE)gcc
 CFLAGS = -g -Wall
+CFLAGS += -I/usr/include/x86_64-linux-gnu
 LFLAGS = -lbsd -pthread
 SRC = $(wildcard *.c)
 OBJ = $(SRC:.c=.o)
