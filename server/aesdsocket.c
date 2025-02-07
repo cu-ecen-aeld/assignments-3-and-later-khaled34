@@ -14,7 +14,9 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <pthread.h>
-#include </usr/include/x86_64-linux-gnu/bsd/sys/queue.h>
+#if (QUEUE_BSD_LINKED)
+#include <queue.h>
+#endif //QUEUE_BSD_LINKED
 #include <time.h>
 /*--------------------------------- Private definitions ---------------------------------  */
 #define PORT                                    "9000"
@@ -30,7 +32,11 @@ typedef struct client_thread {
     pthread_t thread_id;
     int client_fd;
     int complete;
+#if (QUEUE_BSD_LINKED)
     TAILQ_ENTRY(client_thread) entries;
+#else
+    struct client_thread * nxt_node;
+#endif 
 } client_thread_t;
 /*---------------------------------- Private Variables ----------------------------------  */
 static int data_packet_fd = UNINIT_VALUE;
@@ -38,8 +44,66 @@ static int server_socket_fd = UNINIT_VALUE;
 static volatile sig_atomic_t shutdown_requested = 0;
 static pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t thread_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+#if (QUEUE_BSD_LINKED)
 static TAILQ_HEAD(client_thread_list, client_thread) thread_list;
+#else
+static client_thread_t* thread_list;
+#endif
 /*--------------------------------- Private Functions ---------------------------------  */
+void insert_at_end(client_thread_t** head, client_thread_t* new_node) 
+{
+    if (!new_node) return; // Ensure the new node is valid
+
+    if (*head == NULL) 
+    {
+        *head = new_node;
+        return;
+    }
+
+    client_thread_t* temp = *head;
+
+    while (temp->nxt_node != NULL) 
+    {
+        temp = temp->nxt_node;
+    }
+    temp->nxt_node = new_node;
+}
+client_thread_t* detect_and_rmv_node(client_thread_t** head, client_thread_t* node_to_remove) 
+{
+    client_thread_t* nxt_node_client = NULL;
+
+    if (*head == NULL || node_to_remove == NULL)
+    {
+        goto func_exit;
+    }
+
+    // If the node to remove is the head
+    if (*head == node_to_remove) 
+    {
+        *head = node_to_remove->nxt_node;
+        free(node_to_remove);
+        nxt_node_client = *head;
+        goto func_exit;
+    }
+
+    // Find the node before the node to remove
+    client_thread_t* temp = *head;
+    while (temp->nxt_node != NULL && temp->nxt_node != node_to_remove) 
+    {
+        temp = temp->nxt_node;
+    }
+
+    // If node was found in the list
+    if (temp->nxt_node == node_to_remove) 
+    {
+        temp->nxt_node = node_to_remove->nxt_node;
+        free(node_to_remove);
+        nxt_node_client = temp->nxt_node;
+    }
+func_exit:
+    return nxt_node_client;
+}
+
 /**
  * @brief timer signal handler 
  * 
@@ -310,6 +374,9 @@ static int server_init(const char *port)
  */
 static void run_server(const char *port, const char *file_path) 
 {
+#if (!QUEUE_BSD_LINKED)
+    client_thread_t* client;
+#endif
 
     data_packet_fd = open(file_path, O_CREAT | O_RDWR | O_APPEND, S_IRWXU | S_IRWXG | S_IRWXO);
     if (data_packet_fd == -1) 
@@ -323,7 +390,12 @@ static void run_server(const char *port, const char *file_path)
         exit(EXIT_FAILURE);
     }
     syslog(LOG_INFO, "Server waiting for connections...");
+#if (QUEUE_BSD_LINKED)
     TAILQ_INIT(&thread_list);
+#else
+    thread_list = NULL;
+#endif
+
     while (!shutdown_requested) {
         char s[INET6_ADDRSTRLEN];
         struct sockaddr_storage client_addr;
@@ -343,32 +415,64 @@ static void run_server(const char *port, const char *file_path)
             close(client_fd);
             continue;
         }
+        // initialize the node 
         new_client->client_fd = client_fd;
         new_client->complete = 0;
+        new_client->nxt_node = NULL;
         pthread_create(&new_client->thread_id, NULL, handle_client, new_client);
         pthread_mutex_lock(&thread_list_mutex);
+#if (QUEUE_BSD_LINKED)
         TAILQ_INSERT_TAIL(&thread_list, new_client, entries);
+#else
+        insert_at_end(&thread_list, new_client);
+#endif
         pthread_mutex_unlock(&thread_list_mutex);
         pthread_mutex_lock(&thread_list_mutex);
+#if (QUEUE_BSD_LINKED)
         client_thread_t *client, *tmp;
         TAILQ_FOREACH_SAFE(client, &thread_list, entries, tmp) 
+#else
+        client      = thread_list; 
+        while (client != NULL)
+#endif
         {
             if (client->complete) 
             {
                 pthread_join(client->thread_id, NULL);
+#if (QUEUE_BSD_LINKED)
                 TAILQ_REMOVE(&thread_list, client, entries);
                 free(client);
             }
+#else
+                client = detect_and_rmv_node(&thread_list, client);
+
+            }
+            else
+            {
+                client = client->nxt_node;
+            }
+#endif
         }
         pthread_mutex_unlock(&thread_list_mutex);
     }
     /* Clean all nodes in the linked list */
     pthread_mutex_lock(&thread_list_mutex);
+#if (QUEUE_BSD_LINKED)
     client_thread_t *client, *tmp;
-    TAILQ_FOREACH_SAFE(client, &thread_list, entries, tmp) {
+    TAILQ_FOREACH_SAFE(client, &thread_list, entries, tmp) 
+#else 
+    client      = thread_list; 
+    while (client != NULL)
+#endif
+    {
         pthread_join(client->thread_id, NULL);
+#if (QUEUE_BSD_LINKED)
         TAILQ_REMOVE(&thread_list, client, entries);
         free(client);
+#else
+        
+        client = detect_and_rmv_node(&thread_list, client);
+#endif
     }
     pthread_mutex_unlock(&thread_list_mutex);
 
