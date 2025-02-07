@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <pthread.h>
-#include <bsd/sys/queue.h>
+#include <queue.h>
 #include <time.h>
 /*--------------------------------- Private definitions ---------------------------------  */
 #define PORT                                    "9000"
