@@ -1,7 +1,8 @@
-# Variables
+# Variables 
 CC = $(CROSS_COMPILE)gcc
 CFLAGS = -g -Wall
-LFLAGS = -lbsd -pthread
+LFLAGS = -pthread 
+#LFLAGS += -lbsd 
 SRC = $(wildcard *.c)
 OBJ = $(SRC:.c=.o)
 TARGET = aesdsocket
