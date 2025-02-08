@@ -11,11 +11,11 @@ TARGET ?= aesdsocket
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $(OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJ)
 	rm -f $(OBJ)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(LFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJ) $(TARGET)
