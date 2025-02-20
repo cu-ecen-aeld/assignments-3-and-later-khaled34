@@ -138,11 +138,12 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
        of the buffer entry with the old size + the newly passed one  */
     if (ptr_aesd_device->buffer_entry.size == 0) 
     {
-        // kzalloc is like calloc in userspace
-        ptr_aesd_device->buffer_entry.buffptr = kzalloc(count, GFP_KERNEL);
+        PDEBUG("new write entry\n");
+        ptr_aesd_device->buffer_entry.buffptr = kmalloc(count, GFP_KERNEL);
     } 
     else 
     {
+        PDEBUG("modifying old entry\n");
         required_new_mem = ptr_aesd_device->buffer_entry.size + count;
         ptr_aesd_device->buffer_entry.buffptr = krealloc(ptr_aesd_device->buffer_entry.buffptr, required_new_mem , GFP_KERNEL);
 
