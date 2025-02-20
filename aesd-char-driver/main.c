@@ -111,7 +111,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     *f_pos += read_bytes;
 
 func_unlock:
-    mutex_unlock(&ptr_aesd_device->virt_device_lock)
+    mutex_unlock(&ptr_aesd_device->virt_device_lock);
 func_exit:
     return retval;
 }
@@ -245,18 +245,18 @@ void aesd_cleanup_module(void)
     AESD_CIRCULAR_BUFFER_FOREACH(entry,&aesd_device.virt_device,index) 
     {
 #ifdef __KERNEL__
-       free((void*)entry->buffptr);
-#else
        kfree((void*)entry->buffptr);
+#else
+       free((void*)entry->buffptr);
 #endif 
     }
     /*  Free any uncompleted memory */
-    if (aesd_device.buffer_entry != NULL)
+    if (aesd_device.buffer_entry.buffptr != NULL)
     {
 #ifdef __KERNEL__
-        free((void*)aesd_device.buffer_entry.buffptr);
-#else
         kfree((void*)aesd_device.buffer_entry.buffptr);
+#else
+        free((void*)aesd_device.buffer_entry.buffptr);
 #endif 
     }
     
