@@ -81,7 +81,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     if (mutex_lock_interruptible(&ptr_aesd_device->virt_device_lock))
     {
         PDEBUG("Read Operation Failure: Wait for Mutex\n");
-		retval -ERESTARTSYS;
+		retval = -ERESTARTSYS;
         goto func_exit;
     }
     /* NOTE THAT : Read implementation is as described in the session that the driver will handle the single entry read and 
@@ -109,6 +109,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     }
     /* Update the f_pos with the read bytes in case of successful read */
     *f_pos += read_bytes;
+    retval = read_bytes;
 
 func_unlock:
     mutex_unlock(&ptr_aesd_device->virt_device_lock);
@@ -120,7 +121,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
     struct aesd_dev *ptr_aesd_device           = filp->private_data;
-    ssize_t retval                             = -ENOMEM;
+    ssize_t retval                             = 0;
     size_t  required_new_mem                   = 0 ;
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
     /**
@@ -149,9 +150,11 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     }
     /* Memory Check */
-    if (ptr_aesd_device->buffer_entry.buffptr == NULL)
+    
+    if (ptr_aesd_device->buffer_entry.buffptr == 0)
    	{
         PDEBUG("Write Operation Failure: Not Enough memory issue\n");
+        retval = -ENOMEM;
         goto func_unlock; /* retval is already initialized to -ENOMEM*/
     }
     /* copy memory from user space to kernel space starting from the previous size */
@@ -163,6 +166,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
     /* Update the size */
     ptr_aesd_device->buffer_entry.size += count;
+    retval = count;
     /* Check if the last received char is \n then add the buffer entry to the virtual circular buffer */
     if (strchr(ptr_aesd_device->buffer_entry.buffptr, '\n') != 0)
     {
@@ -171,7 +175,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         ptr_aesd_device->buffer_entry.buffptr = NULL;
         ptr_aesd_device->buffer_entry.size    = 0;
     }
-
+    
 func_unlock:
     mutex_unlock(&ptr_aesd_device->virt_device_lock);
 func_exit:
