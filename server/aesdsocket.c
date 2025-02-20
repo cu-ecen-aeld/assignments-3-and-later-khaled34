@@ -22,8 +22,16 @@
 #define PORT                                    "9000"
 #define BACKLOG                                 10
 #define MAXDATASIZE                             1024
-#define FILE_PATH                               "/var/tmp/aesdsocketdata"
 #define UNINIT_VALUE                            -1
+
+#define USE_AESD_CHAR_DEVICE                    1
+
+#if (!USE_AESD_CHAR_DEVICE)
+#define FILE_PATH                               "/var/tmp/aesdsocketdata"
+#else
+#define FILE_PATH                               "/dev/aesdchar"
+#endif /*(!USE_AESD_CHAR_DEVICE)*/
+
 
 /**
  * @brief Node definition 
@@ -104,6 +112,7 @@ func_exit:
     return nxt_node_client;
 }
 
+#if  (!USE_AESD_CHAR_DEVICE)
 /**
  * @brief timer signal handler 
  * 
@@ -129,6 +138,7 @@ func_exit:
 
     }
 }
+
 /**
  * @brief Function to initialize the timer and start it 
  * 
@@ -161,6 +171,7 @@ void start_timer(void)
     // Start the timer
     timer_settime(timerid, 0, &its, NULL);
 }
+#endif /*(!USE_AESD_CHAR_DEVICE)*/
 /**
  * @brief A special signal handler to clean up the system when SIGTERM or SIGINT is initiated
  * 
@@ -477,8 +488,13 @@ static void run_server(const char *port, const char *file_path)
     pthread_mutex_unlock(&thread_list_mutex);
 
     close(server_socket_fd);
+#if    (!USE_AESD_CHAR_DEVICE)
     close(data_packet_fd);
+#endif  //(!USE_AESD_CHAR_DEVICE)
+
+#if (!USE_AESD_CHAR_DEVICE)
     unlink(file_path);
+#endif /*(!USE_AESD_CHAR_DEVICE)*/
 }
 
 
@@ -496,9 +512,10 @@ int main(int argc, char** argv)
     {
         exit(EXIT_FAILURE);
     }
+#if  (!USE_AESD_CHAR_DEVICE)
     // Start the timestamp logging 
     start_timer();
-
+#endif /*(!USE_AESD_CHAR_DEVICE)*/
     // Run the server
     run_server(PORT, FILE_PATH);
 
