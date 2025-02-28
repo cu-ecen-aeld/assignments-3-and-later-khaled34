@@ -15,7 +15,7 @@ else
     group="wheel"
 fi
 
-if [ -e ${module}.ko ]; then
+if [ -e "${MODULE_DIR}/${module}.ko" ]; then
     echo "Loading local built file ${module}.ko"
     #insmod ./$module.ko $* || exit 1
     insmod "$MODULE_DIR"/"$module".ko $* || exit 1
