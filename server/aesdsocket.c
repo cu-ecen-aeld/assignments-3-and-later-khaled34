@@ -266,24 +266,26 @@ static int check_and_resize_buffer(char **packet_buffer, size_t *packet_buffer_c
     }
     return 0;
 }
-
+#if (USE_AESD_CHAR_DEVICE)
 static int Check_seekCmd(char * ptr_buff, int fd)
 {
     int retval = EXIT_FAILURE;
     if (strncmp(ptr_buff, AESD_SEEKTO_COMMAND, AESD_SEEKTO_PIVOT_LEN) == 0) 
     {
+        syslog(LOG_DEBUG, "[USER SPACE] Detected ICOTL COMMAND\n"); 
         char *pos_of_valid_digit = strchr(ptr_buff, ':');
         if (pos_of_valid_digit != NULL) 
         {
             /* Get the next value */
             pos_of_valid_digit++;
-
+            
             char *endptr;
             uint32_t write_cmd = strtoul(pos_of_valid_digit, &endptr, 10);
             if (*endptr == ',') 
             {
-                pos_of_valid_digit = (endptr++); 
+                pos_of_valid_digit = endptr + 1; 
                 uint32_t offset = strtoul(pos_of_valid_digit, &endptr, 10);
+                syslog(LOG_DEBUG, "[USER SPACE] Detected ICOTL COMMAND offsets (%d,%d)\n", write_cmd, offset); 
                 struct aesd_seekto seek_to = {write_cmd, offset};
                 int ioctl_result = ioctl(fd, AESDCHAR_IOCSEEKTO, &seek_to);
                 if (ioctl_result < 0) 
@@ -297,6 +299,7 @@ static int Check_seekCmd(char * ptr_buff, int fd)
     }
     return retval;
 }
+#endif
 /**
  * @brief client thread handler
  *        Main functionality is to receive and send data from the socket descriptor
@@ -336,8 +339,9 @@ static void *handle_client(void *arg)
         char *newline_pos = memchr(packet_buffer, '\n', consumed_buffer_size);
         if (newline_pos != NULL) 
         {
-            
+#if USE_AESD_CHAR_DEVICE
             if (Check_seekCmd(packet_buffer, data_packet_fd) != EXIT_SUCCESS)
+#endif
             {
                 pthread_mutex_lock(&file_mutex);
                 ssize_t num_written_octets = write(data_packet_fd, packet_buffer, newline_pos - packet_buffer + 1);
@@ -350,20 +354,20 @@ static void *handle_client(void *arg)
                     close(accepted_fd);
                     return NULL;
                 }
-
                 lseek(data_packet_fd, 0, SEEK_SET);
-                char file_buf[MAXDATASIZE];
-                ssize_t read_octets;
-                while ((read_octets = read(data_packet_fd, file_buf, MAXDATASIZE - 1)) > 0) 
-                {
-                    file_buf[read_octets] = '\0';
-                    send(accepted_fd, file_buf, read_octets, 0);
-                }
-                consumed_buffer_size = 0;
             }
+            /* Read Back everything in the device */
+            char file_buf[MAXDATASIZE];
+            ssize_t read_octets;
+            while ((read_octets = read(data_packet_fd, file_buf, MAXDATASIZE - 1)) > 0) 
+            {
+                file_buf[read_octets] = '\0';
+                send(accepted_fd, file_buf, read_octets, 0);
+            }
+            consumed_buffer_size = 0;
         }
-    
     }
+    
     free(packet_buffer);
     syslog(LOG_INFO, "Closed connection from client\n");
     close(accepted_fd);

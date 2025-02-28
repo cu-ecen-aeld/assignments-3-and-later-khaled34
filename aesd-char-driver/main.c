@@ -73,8 +73,10 @@ static long aesd_adjust_file_offset(struct file *filp, unsigned int write_cmd, u
                ptr_aesd_dev->virt_device.entry[index % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED].size, 
                virt_dev_len_till_write_cmd);
     }
+
     /* Update the fpos by the actual seek */
     filp->f_pos = virt_dev_len_till_write_cmd + write_cmd_offset;
+    PDEBUG("aesd_adjust_file_offset: NEW FILE POSITION IS %d\n", filp->f_pos);
 
 func_unlock:
     mutex_unlock(&ptr_aesd_dev->virt_device_lock);
@@ -128,6 +130,11 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     ssize_t retval                             = 0;
     size_t entry_offset                        = 0;
     size_t read_bytes                          = 0;
+    /* Prepare the seek*/
+    if (*f_pos == 0)
+    {
+        *f_pos += filp->f_pos;
+    }
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
     /**
      * TODO: handle read
@@ -274,7 +281,7 @@ long int aesd_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long 
     size_t entry_offset = 0;
     
     long int retval =  SUCCESS;
-
+    PDEBUG("ioctl function: Start\n");
 
     switch (cmd)
     {
@@ -287,6 +294,7 @@ long int aesd_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long 
             }
             else
             {
+                PDEBUG("ioctl function: Copy from user space %d, %d\n", kernel_seek.write_cmd, kernel_seek.write_cmd_offset);
                 retval = aesd_adjust_file_offset(filp, kernel_seek.write_cmd, kernel_seek.write_cmd_offset);
                 if (retval != SUCCESS)
                 {
