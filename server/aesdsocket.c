@@ -300,6 +300,17 @@ static int Check_seekCmd(char * ptr_buff, int fd)
     return retval;
 }
 #endif
+
+#if USE_AESD_CHAR_DEVICE
+int open_device_file(char* ptr_file_path)
+{
+    return (open(ptr_file_path, O_RDWR | O_APPEND, S_IRWXU | S_IRWXG | S_IRWXO));
+}
+int close_device_file(int fd)
+{
+    return (close(fd));
+}
+#endif
 /**
  * @brief client thread handler
  *        Main functionality is to receive and send data from the socket descriptor
@@ -340,6 +351,8 @@ static void *handle_client(void *arg)
         if (newline_pos != NULL) 
         {
 #if USE_AESD_CHAR_DEVICE
+            /* open file */
+            data_packet_fd = open_device_file(FILE_PATH);
             if (Check_seekCmd(packet_buffer, data_packet_fd) != EXIT_SUCCESS)
 #endif
             {
@@ -365,6 +378,10 @@ static void *handle_client(void *arg)
                 send(accepted_fd, file_buf, read_octets, 0);
             }
             consumed_buffer_size = 0;
+#if USE_AESD_CHAR_DEVICE
+            /* open file */
+            close_device_file(data_packet_fd);
+#endif
         }
     }
     
@@ -428,13 +445,14 @@ static void run_server(const char *port, const char *file_path)
 #if (!QUEUE_BSD_LINKED)
     client_thread_t* client;
 #endif
-
+#if (!USE_AESD_CHAR_DEVICE)
     data_packet_fd = open(file_path, O_CREAT | O_RDWR | O_APPEND, S_IRWXU | S_IRWXG | S_IRWXO);
     if (data_packet_fd == -1) 
     {
         syslog(LOG_ERR, "Error opening/creating the file\n");
         exit(EXIT_FAILURE);
     }
+#endif
 
     if (server_init(port) == -1)
     {
